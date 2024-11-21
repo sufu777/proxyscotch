@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/atotto/clipboard"
 	"github.com/getlantern/systray"
+	"github.com/hoppscotch/proxyscotch/libfs"
 	"github.com/pkg/browser"
 
 	icon "github.com/hoppscotch/proxyscotch/icons"
@@ -32,61 +34,53 @@ func onReady() {
 	/** Set up menu items. **/
 
 	// Status
-	mStatus = systray.AddMenuItem("Starting...", "")
+	mStatus = systray.AddMenuItem("启动中...", "")
 	mStatus.Disable()
-	mCopyAccessToken = systray.AddMenuItem("Copy Access Token...", "")
+	mCopyAccessToken = systray.AddMenuItem("复制 Access Token...", "")
 	mCopyAccessToken.Disable()
 
 	systray.AddSeparator()
 
 	// Open Hoppscotch Interface
-	mOpenHoppscotch := systray.AddMenuItem("Open Hoppscotch", "")
+	mOpenHoppscotch := systray.AddMenuItem("打开 Hoppscotch", "")
 
 	systray.AddSeparator()
 
-	// View Help
-	mViewHelp := systray.AddMenuItem("Help...", "")
 	// Set Proxy Authentication Token
-	mSetAccessToken := systray.AddMenuItem("Set Access Token...", "")
-	// Check for Updates
-	mUpdateCheck := systray.AddMenuItem("Check for Updates...", "")
+	mSetAccessToken := systray.AddMenuItem("设置 Access Token...", "")
 
 	systray.AddSeparator()
 
 	// Quit Proxy
-	mQuit := systray.AddMenuItem("Quit Proxyscotch", "")
+	mQuit := systray.AddMenuItem("退出 Proxyscotch", "")
+	var fsPort = 33633
 
 	/** Start proxy server. **/
-	go runHoppscotchProxy()
+	go runHoppscotchProxy(fsPort)
+	// 33633 端口上监听文件服务器
+	go runFileServer(fsPort)
 
 	/** Wait for menu input. **/
 	for {
 		select {
 		case <-mOpenHoppscotch.ClickedCh:
-			_ = browser.OpenURL("https://hoppscotch.io/")
+			_ = browser.OpenURL(fmt.Sprintf("http://127.0.0.1:%d/", fsPort))
 
 		case <-mCopyAccessToken.ClickedCh:
 			_ = clipboard.WriteAll(libproxy.GetAccessToken())
-			_ = notifier.Notify("Proxyscotch", "Proxy Access Token copied...", "The Proxy Access Token has been copied to your clipboard.", notifier.GetIcon())
-
-		case <-mViewHelp.ClickedCh:
-			_ = browser.OpenURL("https://github.com/hoppscotch/proxyscotch/wiki")
+			_ = notifier.Notify("Proxyscotch", "代理 Access Token 已复制...", "代理 Access Token 已经复制到剪切板.", notifier.GetIcon())
 
 		case <-mSetAccessToken.ClickedCh:
-			newAccessToken, success := inputbox.InputBox("Proxyscotch", "Please enter the new Proxy Access Token...\n(Leave this blank to disable access checks.)", "")
+			newAccessToken, success := inputbox.InputBox("Proxyscotch", "请输入新的代理Access Token ...\n(Leave this blank to disable access checks.)", "")
 			if success {
 				libproxy.SetAccessToken(newAccessToken)
 
 				if len(newAccessToken) == 0 {
-					_ = notifier.Notify("Proxyscotch", "Proxy Access check disabled.", "**Anyone can access your proxy server!** The Proxy Access Token check has been disabled.", notifier.GetIcon())
+					_ = notifier.Notify("Proxyscotch", "未开启代理访问控制...", "**任何人都可以访问你的代理服务!** 未开启代理访问控制.", notifier.GetIcon())
 				} else {
-					_ = notifier.Notify("Proxyscotch", "Proxy Access Token updated...", "The Proxy Access Token has been updated.", notifier.GetIcon())
+					_ = notifier.Notify("Proxyscotch", "更新代理访问控制成功...", "代理 Access Token 已经成功更新.", notifier.GetIcon())
 				}
 			}
-
-		case <-mUpdateCheck.ClickedCh:
-			// TODO: Add update check.
-			_ = browser.OpenURL("https://github.com/hoppscotch/proxyscotch")
 
 		case <-mQuit.ClickedCh:
 			systray.Quit()
@@ -98,8 +92,12 @@ func onReady() {
 func onExit() {
 }
 
-func runHoppscotchProxy() {
-	libproxy.Initialize("hoppscotch", "127.0.0.1:9159", "https://hoppscotch.io", "", "", onProxyStateChange, true, nil)
+func runHoppscotchProxy(fsPort int) {
+	libproxy.Initialize("hoppscotch", "127.0.0.1:9159", fmt.Sprintf("http://127.0.0.1:%d/", fsPort), "", "", onProxyStateChange, true, nil)
+}
+
+func runFileServer(fsPort int) {
+	libfs.InitializeFs(fsPort)
 }
 
 func onProxyStateChange(status string, isListening bool) {
