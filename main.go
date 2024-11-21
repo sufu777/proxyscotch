@@ -93,7 +93,7 @@ func onExit() {
 }
 
 func runHoppscotchProxy(fsPort int) {
-	libproxy.Initialize("hoppscotch", "127.0.0.1:9159", fmt.Sprintf("http://127.0.0.1:%d/", fsPort), "", "", onProxyStateChange, true, nil)
+	libproxy.Initialize("", "127.0.0.1:9159", fmt.Sprintf("http://127.0.0.1:%d", fsPort), "", "", onProxyStateChange, false, nil)
 }
 
 func runFileServer(fsPort int) {
